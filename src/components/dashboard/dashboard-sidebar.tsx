@@ -7,7 +7,8 @@ import {
   Code,
   Trophy,
   ChevronRight,
-  X
+  X,
+  Calendar
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 
@@ -54,6 +55,12 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
       href: "/dashboard/contests",
       icon: Trophy,
       isActive: pathname === "/dashboard/contests"
+    },
+    {
+      title: "Scheduler",
+      href: "/dashboard/scheduler",
+      icon: Calendar,
+      isActive: pathname === "/dashboard/scheduler" 
     }
   ];
   
@@ -75,11 +82,23 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
     toggleBtn?.addEventListener('click', handleToggle);
     return () => toggleBtn?.removeEventListener('click', handleToggle);
   }, [toggleSidebar]);
+  
+  // Close mobile sidebar on resize if needed
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768 && isMobile) {
+        setOpenMobile(false);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobile, setOpenMobile]);
 
   return (
     <Sidebar 
       collapsible="icon"
-      className="border-r transition-all duration-300 shadow-sm z-50 lg:z-0 w-[240px] max-w-[240px]" 
+      className="border-r transition-all duration-300 shadow-sm z-50 lg:z-0" 
       {...props}
     >
       <SidebarHeader>
@@ -89,7 +108,7 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
               <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                 <LayoutDashboard className="size-4" />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-medium">ContestNotify</span>
                 <span className="truncate text-xs">Dashboard</span>
               </div>
@@ -102,7 +121,7 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
             aria-label="Toggle sidebar"
             data-toggle-sidebar
           >
-            <ChevronRight className="size-4 transition-transform ui-expanded:rotate-180" />
+            <ChevronRight className="size-4 transition-transform ui-expanded:rotate-180 group-data-[state=expanded]:rotate-0 group-data-[state=collapsed]:rotate-180" />
           </button>
           
           {/* Mobile: Close sidebar button */}

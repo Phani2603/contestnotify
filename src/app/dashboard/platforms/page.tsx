@@ -18,72 +18,21 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Code } from "lucide-react";
-
-// Mock platform data
-const mockPlatforms = [
-  {
-    id: '1',
-    name: 'Codeforces',
-    enabled: true,
-    username: 'user123',
-    notificationsEnabled: true,
-    logo: '/platforms/codeforces.png'
-  },
-  {
-    id: '2',
-    name: 'LeetCode',
-    enabled: true,
-    username: 'leetcoder',
-    notificationsEnabled: true,
-    logo: '/platforms/leetcode.png'
-  },
-  {
-    id: '3',
-    name: 'HackerRank',
-    enabled: false,
-    username: '',
-    notificationsEnabled: false,
-    logo: '/platforms/hackerrank.png'
-  },
-  {
-    id: '4',
-    name: 'AtCoder',
-    enabled: false,
-    username: '',
-    notificationsEnabled: false,
-    logo: '/platforms/atcoder.png'
-  }
-];
-
-type Platform = typeof mockPlatforms[0];
+import { useContestNotify } from '@/lib/contest-notify-context';
 
 export default function PlatformsPage() {
-  const [platforms, setPlatforms] = useState<Platform[]>(mockPlatforms);
+  const { platforms, togglePlatform, updatePlatform } = useContestNotify();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleTogglePlatform = (id: string, field: 'enabled' | 'notificationsEnabled') => {
-    setPlatforms(platforms.map(platform => {
-      if (platform.id === id) {
-        return {
-          ...platform,
-          [field]: !platform[field],
-          // If disabling platform, also disable notifications
-          ...(field === 'enabled' && !platform.enabled ? {} : 
-            field === 'enabled' && platform.enabled ? { notificationsEnabled: false } : {}
-          )
-        };
-      }
-      return platform;
-    }));
+    togglePlatform(id, field);
   };
 
   const handleUsernameChange = (id: string, username: string) => {
-    setPlatforms(platforms.map(platform => 
-      platform.id === id ? { ...platform, username } : platform
-    ));
+    updatePlatform(id, { username });
   };
 
-  const handleSave = async (platform: Platform) => {
+  const handleSave = async (platform: { id: string, name: string }) => {
     setIsLoading(true);
     
     // Simulate API call

@@ -42,7 +42,7 @@ export function UserNav({ user, onSignOut }: UserNavProps) {
               <AvatarImage src={user.avatar} alt={user.name} />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
-            <div className="grid flex-1 text-left leading-tight overflow-hidden group-[[data-collapsed=true]]:hidden">
+            <div className="grid flex-1 text-left leading-tight overflow-hidden group-data-[collapsible=icon]:hidden">
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs text-muted-foreground">{user.email}</span>
             </div>

@@ -6,6 +6,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { DbInitializer } from "@/components/db-initializer";
 import { Toaster } from "sonner";
 import DevNav from "@/components/dev-nav";
+import { ContestNotifyProvider } from "@/lib/contest-notify-context";
 
 const telex = Telex({
   variable: "--font-telex",
@@ -44,11 +45,13 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <DbInitializer />
-            <Toaster richColors position="top-right" />
-            {children}
-            {/* Dev navigation - only appears in development */}
-            <DevNav />
+            <ContestNotifyProvider>
+              <DbInitializer />
+              <Toaster richColors position="top-right" />
+              {children}
+              {/* Dev navigation - only appears in development */}
+              <DevNav />
+            </ContestNotifyProvider>
           </ThemeProvider>
         </AuthProvider>
       </body>

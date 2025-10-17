@@ -23,58 +23,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Search, Bell, BellOff } from "lucide-react";
-
-// Mock contest data
-const mockContests = [
-  {
-    id: '1',
-    name: 'Codeforces Round #870',
-    platform: 'Codeforces',
-    startTime: '2023-10-15T14:00:00Z',
-    duration: '2 hours',
-    notificationsEnabled: true
-  },
-  {
-    id: '2',
-    name: 'LeetCode Weekly Contest 368',
-    platform: 'LeetCode',
-    startTime: '2023-10-16T02:30:00Z',
-    duration: '1.5 hours',
-    notificationsEnabled: true
-  },
-  {
-    id: '3',
-    name: 'HackerRank Week of Code 42',
-    platform: 'HackerRank',
-    startTime: '2023-10-20T12:00:00Z',
-    duration: '7 days',
-    notificationsEnabled: false
-  },
-  {
-    id: '4',
-    name: 'AtCoder Beginner Contest 328',
-    platform: 'AtCoder',
-    startTime: '2023-10-18T12:00:00Z',
-    duration: '100 minutes',
-    notificationsEnabled: false
-  },
-  {
-    id: '5',
-    name: 'Google Kick Start Round H 2023',
-    platform: 'Google',
-    startTime: '2023-10-30T09:00:00Z',
-    duration: '3 hours',
-    notificationsEnabled: true
-  }
-];
-
-type Contest = typeof mockContests[0];
+import { useContestNotify, formatContestTimeUntil } from "@/lib/contest-notify-context";
 
 export default function ContestsPage() {
-  const [contests, setContests] = useState<Contest[]>(mockContests);
+  const { contests, toggleContestNotification } = useContestNotify();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (date: Date) => {
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'short',
       year: 'numeric',
@@ -83,33 +38,15 @@ export default function ContestsPage() {
       hour: '2-digit',
       minute: '2-digit'
     };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+    return date.toLocaleDateString(undefined, options);
   };
 
-  const getTimeUntilContest = (startTimeString: string) => {
-    const now = new Date();
-    const startTime = new Date(startTimeString);
-    const diffMs = startTime.getTime() - now.getTime();
-    
-    if (diffMs < 0) return 'Started';
-    
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (diffDays > 0) {
-      return `${diffDays}d ${diffHours}h`;
-    } else {
-      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      return `${diffHours}h ${diffMinutes}m`;
-    }
+  const getTimeUntilContest = (date: Date, startTime: string) => {
+    return formatContestTimeUntil(date, startTime);
   };
 
-  const toggleNotification = (contestId: string) => {
-    setContests(contests.map(contest => 
-      contest.id === contestId 
-        ? { ...contest, notificationsEnabled: !contest.notificationsEnabled } 
-        : contest
-    ));
+  const handleToggleNotification = (contestId: number | string) => {
+    toggleContestNotification(contestId);
   };
 
   const filteredContests = contests.filter(contest => {
@@ -181,15 +118,15 @@ export default function ContestsPage() {
                         <TableCell className="hidden xs:table-cell">
                           <Badge variant="outline" className="text-xs">{contest.platform}</Badge>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">{formatDate(contest.startTime)}</TableCell>
-                        <TableCell className="text-xs sm:text-sm">{getTimeUntilContest(contest.startTime)}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{formatDate(contest.date)}</TableCell>
+                        <TableCell className="text-xs sm:text-sm">{getTimeUntilContest(contest.date, contest.startTime)}</TableCell>
                         <TableCell className="hidden md:table-cell">{contest.duration}</TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => toggleNotification(contest.id)}
+                            onClick={() => handleToggleNotification(contest.id)}
                           >
                             {contest.notificationsEnabled ? (
                               <Bell className="h-4 w-4 text-green-500" />

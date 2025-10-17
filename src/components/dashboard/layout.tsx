@@ -30,7 +30,7 @@ function DashboardTopBar() {
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <Toaster richColors position="top-right" />
       <DashboardSidebar />
       <SidebarInset>

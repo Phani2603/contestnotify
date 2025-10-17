@@ -1,0 +1,269 @@
+Of course. This is an excellent project idea that fits the Next.js ecosystem perfectly. I'll lay out a complete system design, incorporating your requirements and filling in the gaps with industry-best practices.
+
+This design aims for a robust, scalable, and maintainable application.
+
+1. Core Concepts & Requirements
+Project Name: "Contest Notifier" (or similar)
+
+Core Goal: To provide competitive programmers with a centralized dashboard for upcoming contests from various platforms and deliver timely, customizable push notifications.
+
+Functional Requirements:
+
+User Authentication: Secure user sign-up, login (email/password & social logins like Google/GitHub).
+
+Platform Integration: Onboarding flow to select coding platforms (e.g., Codeforces, LeetCode, CodeChef, AtCoder).
+
+Contest Aggregation: Automatically fetch and display upcoming contest schedules.
+
+Customizable Notifications: Users can select specific contests and configure multiple reminders (e.g., 1 hour before, 30 mins before, 5 mins before).
+
+Personalized Dashboard: A central view of subscribed contests and general upcoming contests.
+
+Profile Management: Users can update their details and manage their connected coding platform usernames.
+
+Non-Functional Requirements:
+
+Reliability: Notifications must be delivered accurately and on time. The system needs to be fault-tolerant.
+
+Scalability: The architecture should handle a growing number of users and contests without performance degradation.
+
+Performance: The dashboard must load quickly, even with data from multiple sources.
+
+Security: User credentials and data must be stored securely.
+
+2. System Architecture
+We will use a monolithic repository (monorepo) approach with Next.js, where the frontend and backend logic coexist within the same project. This is highly efficient for this scale.
+
+The main components are:
+
+Client (Browser): The user's device running the Next.js frontend built with React, shadcn/ui, and Aceternity UI.
+
+Next.js Server (Vercel/Node.js): This is the core of our application.
+
+App Router: Serves the UI (React Server Components for speed, Client Components for interactivity).
+
+API Routes: Acts as our backend, handling all business logic.
+
+Authentication Provider: A dedicated service for security. NextAuth.js with JWT strategy will be used for authentication, providing a balance of security and flexibility while remaining fully customizable.
+
+Database: Two viable options based on project requirements:
+1. MongoDB - A NoSQL database offering schema flexibility, ideal for rapid iterations and document-based data models.
+2. Supabase - PostgreSQL-based serverless platform with additional features like auth, storage, and real-time subscriptions.
+
+ORM: A tool to safely interact with the database. Prisma is the industry standard for TypeScript projects.
+
+Job Queue & Scheduler: The engine for notifications. A simple node-cron is not reliable enough. We'll use a robust job queue. BullMQ backed by Redis is the professional choice.
+
+Data Fetcher Service: A separate, scheduled process to aggregate contest data.
+
+Web Push Service: The intermediary (Google/Apple/Mozilla) that delivers the final notification.
+
+3. Component Deep Dive
+A. Frontend (Next.js App Router)
+Framework: Next.js 14+ with the App Router.
+
+UI: Use shadcn/ui for the core component library (buttons, forms, dialogs) and Aceternity UI for more complex, animated elements. This is a great combination.
+
+State Management: For simple cases, React's useState and useContext are sufficient. For more complex global state (like user session), the auth provider or a lightweight library like Zustand can be used.
+
+Data Fetching: Leverage React Server Components (RSCs) to fetch contest and user data directly on the server for fast initial page loads. Client components will handle mutations (e.g., saving preferences).
+
+Icons: lucide-react (included with shadcn) and react-icons are excellent choices.
+
+B. Authentication (NextAuth.js with JWT)
+NextAuth.js will be our authentication solution with JWT strategy for session management:
+
+Flow: Users can sign up and sign in with email/password (using a credentials provider) and through OAuth providers (GitHub, Google). NextAuth will handle session management using JWT tokens stored in HTTP-only cookies for security.
+
+Benefits:
+- Complete control over the authentication flow
+- Self-hosted solution (no third-party dependency)
+- Excellent integration with Next.js
+- Custom callbacks for JWT and session manipulation
+- Protection of API routes and pages with middleware
+
+Implementation:
+- API endpoints for authentication actions
+- Server-side session verification
+- Custom hooks for frontend access to user data
+- Role-based access control if needed
+
+C. Database Options
+
+Option 1: MongoDB + MongoDB Driver/Mongoose
+- Schema flexibility allows rapid iteration during development
+- Document-oriented structure for nested data (like user preferences)
+- Native MongoDB driver for direct database operations
+- Mongoose ODM available for schema validation if needed
+- MongoDB Atlas for managed cloud hosting with free tier
+- MongoDB Compass for visualization and data management
+
+Option 2: Supabase (PostgreSQL)
+- PostgreSQL database with relational integrity
+- Built-in row-level security policies
+- Real-time subscriptions for live updates
+- Additional services (auth, storage, edge functions)
+- SQL query capabilities for complex data relationships
+- REST and GraphQL interfaces
+
+D. Contest Data Aggregation
+This is a critical background process.
+
+Method: We will create a script that fetches data from public APIs of coding platforms (e.g., Codeforces API). For platforms without an API, we may need to resort to web scraping (using libraries like cheerio), but this should be a last resort as it is brittle.
+
+Implementation: This should be a scheduled serverless function. Using Vercel Cron Jobs, we can trigger this function to run automatically every few hours.
+
+Workflow:
+
+The cron job triggers the /api/ingest-contests endpoint.
+
+The function fetches data from all platform APIs.
+
+It normalizes the data into our Contest schema format.
+
+It uses Prisma's upsert functionality to add new contests and update existing ones in our database.
+
+E. Notification Engine (BullMQ + Redis)
+This is the heart of the application's core feature.
+
+Why not node-cron? A simple cron job runs in-memory. If your server restarts, all scheduled notifications are lost. A job queue is persistent.
+
+Implementation:
+
+Redis: A fast, in-memory data store used by BullMQ to manage jobs. Use a provider like Upstash, which has a generous free tier and integrates perfectly with Vercel.
+
+BullMQ: When a user requests a reminder for a contest, we don't wait. We immediately add a job to the queue with a specific delay.
+
+API Route (/api/schedule-notification): The frontend calls this endpoint. The endpoint calculates the delay until the notification time and adds a job to the BullMQ queue.
+
+Worker Process: A separate, long-running Node.js process (or a serverless function) listens for jobs from the queue. When a job is ready, the worker fetches the user's subscription details from the DB and uses the web-push library to send the notification.
+
+4. Data Schema Design (Prisma)
+Code snippet
+
+// Database Schema Options
+
+// Option 1: MongoDB Collections (using native MongoDB structure)
+/*
+// Example MongoDB collections structure:
+
+// users collection
+{
+  _id: ObjectId(),
+  email: "user@example.com",
+  name: "User Name",
+  password: "hashed_password", // If using credentials provider
+  image: "https://...",
+  createdAt: ISODate("2025-10-15"),
+  updatedAt: ISODate("2025-10-16")
+}
+
+// userPlatforms collection
+{
+  _id: ObjectId(),
+  userId: ObjectId("user_id_reference"),
+  platformId: ObjectId("platform_id_reference"),
+  username: "user_platform_handle"
+}
+
+// Can be accessed directly with MongoDB driver:
+// const user = await db.collection('users').findOne({ email: "user@example.com" });
+*/
+
+// Option 2: Prisma Schema (for Supabase)
+// schema.prisma
+
+model User {
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  password                String?                  // Hashed password if using credentials
+  name                    String?
+  image                   String?                  // Profile image URL
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  userPlatforms           UserPlatform[]
+  notificationPreferences NotificationPreference[]
+  notificationSubscriptions NotificationSubscription[]
+}
+
+// Stores which platforms a user has connected and their username
+model UserPlatform {
+  id         String   @id @default(cuid())
+  userId     String
+  platformId String
+  username   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform   Platform @relation(fields: [platformId], references: [id])
+
+  @@unique([userId, platformId])
+}
+
+// Stores the details for a contest fetched from an API
+model Contest {
+  id                      String                   @id @default(cuid())
+  platformId              String
+  name                    String
+  url                     String                   @unique
+  startTime               DateTime
+  durationSeconds         Int
+  platform                Platform                 @relation(fields: [platformId], references: [id])
+  notificationPreferences NotificationPreference[]
+}
+
+// User's specific notification settings for a single contest
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  contestId String
+  // Array of minutes before the contest to send a reminder, e.g., [60, 15, 5]
+  reminders Int[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contestId])
+}
+
+// Stores the browser's push subscription object
+model NotificationSubscription {
+  id             String @id @default(cuid())
+  userId         String
+  endpoint       String @unique
+  p256dh         String
+  auth           String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Static table for supported platforms
+model Platform {
+  id      String         @id @default(cuid())
+  name    String         @unique // "Codeforces", "LeetCode"
+  iconUrl String
+  contests Contest[]
+  userPlatforms UserPlatform[]
+}
+5. Final Tech Stack Summary
+Framework: Next.js 14+ (App Router)
+
+Language: TypeScript
+
+UI: shadcn/ui & Aceternity UI
+
+Hosting: Vercel
+
+Authentication: NextAuth.js with JWT strategy
+
+Database Options:
+- MongoDB (Hosted on MongoDB Atlas)
+- Supabase (PostgreSQL with additional features)
+
+Data Access Layer: 
+- For MongoDB: Native MongoDB Driver (mongodb package)
+- For Supabase: Supabase Client or Prisma ORM
+
+Job Queue: BullMQ
+
+Queue Datastore: Redis (Hosted on Upstash)
+
+Scheduling: Vercel Cron Jobs
+
+Push Notifications: web-push library

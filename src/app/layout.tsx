@@ -1,15 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Telex, Jost } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProvider } from "@/components/auth-provider";
+import { DbInitializer } from "@/components/db-initializer";
+import DevNav from "@/components/dev-nav";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const telex = Telex({
+  variable: "--font-telex",
   subsets: ["latin"],
+  weight: "400", // Telex only has 400 weight available
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jost = Jost({
+  variable: "--font-jost",
   subsets: ["latin"],
+  // Include all available Jost weights
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -23,11 +32,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${telex.variable} ${jost.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <DbInitializer />
+            {children}
+            {/* Dev navigation - only appears in development */}
+            <DevNav />
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

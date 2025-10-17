@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
 import { DbInitializer } from "@/components/db-initializer";
+import { Toaster } from "sonner";
 import DevNav from "@/components/dev-nav";
 
 const telex = Telex({
@@ -44,6 +45,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <DbInitializer />
+            <Toaster richColors position="top-right" />
             {children}
             {/* Dev navigation - only appears in development */}
             <DevNav />

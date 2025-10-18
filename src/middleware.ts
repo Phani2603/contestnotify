@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 // Import the getToken helper from next-auth/jwt
 import { getToken } from "next-auth/jwt";
 
+// Get first-time user status from cookie
+function isFirstTimeUser(req: NextRequest): boolean {
+  const firstTimeUserCookie = req.cookies.get('first-time-user');
+  return !firstTimeUserCookie || firstTimeUserCookie.value === 'true';
+}
+
 export default async function middleware(req: NextRequest) {
   // Get the token with proper error handling
   let token = null;
@@ -63,6 +69,29 @@ export default async function middleware(req: NextRequest) {
   // Handle admin routes - check for admin role
   if (isAdminRoute && (!isAuthenticated || token?.role !== "admin")) {
     return NextResponse.redirect(new URL("/", req.url));
+  }
+  
+  // First-time user flow: Redirect to platforms page when accessing dashboard 
+  // (except platforms page itself)
+  if (
+    isAuthenticated && 
+    isFirstTimeUser(req) && 
+    path === '/dashboard' &&
+    !path.startsWith('/api/')
+  ) {
+    console.log('First-time user, redirecting to platforms page');
+    return NextResponse.redirect(new URL('/dashboard/platforms', req.url));
+  }
+  
+  // Mark first-time user as completed if they visit the platforms page
+  if (path === '/dashboard/platforms' && isAuthenticated) {
+    const response = NextResponse.next();
+    response.cookies.set('first-time-user', 'false', { 
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      httpOnly: true
+    });
+    return response;
   }
   
   // Allow all other routes

@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  env: {
+    NEXT_PUBLIC_CLIST_API_USERNAME: process.env.CLIST_API_USERNAME,
+    NEXT_PUBLIC_CLIST_API_KEY: process.env.CLIST_API_KEY,
+  },
   images: {
     remotePatterns: [
       {

@@ -3,6 +3,7 @@
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardLayout } from "@/components/dashboard/layout";
 import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { 
   Calendar, 
   Code, 
@@ -12,29 +13,160 @@ import {
   Bell, 
   Globe,
   Filter,
-  Check 
+  Check,
+  ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useContestNotify, formatContestTimeUntil, formatContestDateAndTime } from "@/lib/contest-notify-context";
+import { useContestNotify, formatContestTimeUntil, formatContestDateAndTime, UserPerformance } from "@/lib/contest-notify-context";
 import { format } from "date-fns";
+
+// Platform Performance Tabs Component
+function PlatformPerformanceTabs() {
+  const [activePlatform, setActivePlatform] = useState("All Platforms");
+  const { userPerformance } = useContestNotify();
+  
+  // Define platform-specific data with proper TypeScript interface
+  interface PlatformData {
+    contestsParticipated: number;
+    top10Percent: number;
+    peakRating: number;
+    problemsSolved: number;
+    performance: UserPerformance[];
+  }
+
+  // Define platform-specific data with type safety
+  const platformData: Record<string, PlatformData> = {
+    "All Platforms": {
+      contestsParticipated: 24,
+      top10Percent: 12,
+      peakRating: 1850,
+      problemsSolved: 210,
+      performance: userPerformance
+    },
+    "Codeforces": {
+      contestsParticipated: 15,
+      top10Percent: 7,
+      peakRating: 1750,
+      problemsSolved: 120,
+      performance: userPerformance.filter(p => p.platform === "Codeforces")
+    },
+    "LeetCode": {
+      contestsParticipated: 8,
+      top10Percent: 4,
+      peakRating: 1920,
+      problemsSolved: 75,
+      performance: userPerformance.filter(p => p.platform === "LeetCode")
+    },
+    "CodeChef": {
+      contestsParticipated: 6,
+      top10Percent: 3,
+      peakRating: 1850,
+      problemsSolved: 65,
+      performance: userPerformance.filter(p => p.platform === "CodeChef")
+    },
+  };
+  
+  // Get the active platform's data with type safety
+  const activeData = platformData[activePlatform] || platformData["All Platforms"];
+  
+  // List of available platforms
+  const availablePlatforms = Object.keys(platformData);
+  
+  return (
+    <>
+      {/* Platform Selection Tabs */}
+      <div className="flex overflow-x-auto pb-2 mb-2">
+        {availablePlatforms.map((platform) => (
+          <button
+            key={platform}
+            onClick={() => setActivePlatform(platform)}
+            className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${
+              platform === activePlatform
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {platform}
+          </button>
+        ))}
+      </div>
+      
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="rounded-xl border p-4 text-center bg-accent/5">
+          <div className="text-3xl font-bold">{activeData.contestsParticipated}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Contests Participated</div>
+        </div>
+        <div className="rounded-xl border p-4 text-center bg-accent/5">
+          <div className="text-3xl font-bold">{activeData.problemsSolved}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Problems Solved</div>
+        </div>
+        <div className="rounded-xl border p-4 text-center bg-accent/5">
+          <div className="text-3xl font-bold">{activeData.peakRating}</div>
+          <div className="mt-1 text-sm text-muted-foreground">Peak Rating</div>
+        </div>
+      </div>
+      
+      {/* Recent Results Table */}
+      <div>
+        <h4 className="font-medium text-lg mb-3">Recent Results</h4>
+        {activeData.performance.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Contest</TableHead>
+                <TableHead>Platform</TableHead>
+                <TableHead>Ranking</TableHead>
+                <TableHead>Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activeData.performance.map(contest => (
+                <TableRow key={contest.id}>
+                  <TableCell className="font-medium">{contest.name}</TableCell>
+                  <TableCell>{contest.platform}</TableCell>
+                  <TableCell>
+                    <div className="text-sm">{contest.ranking}</div>
+                    <div className="text-xs text-muted-foreground">Problems: {contest.problemsSolved}</div>
+                  </TableCell>
+                  <TableCell className="font-medium text-primary">{contest.score}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground border rounded-md">
+            No performance data available for this platform
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const { 
     getUpcomingContests, 
-    platforms, 
-    userPerformance 
+    platforms 
   } = useContestNotify();
   
-  // Get 4 upcoming contests
-  const upcomingContests = getUpcomingContests(4).map(contest => ({
-    ...contest,
-    startsIn: formatContestTimeUntil(contest.date, contest.startTime),
-    formattedDate: format(contest.date, 'MMMM d, yyyy'),
-    time: contest.startTime + ' UTC'
-  }));
+  // Get 4 upcoming contests with notifications enabled
+  const upcomingContests = getUpcomingContests(4, true).map(contest => {
+    // Get the actual date from originalStartISO if available for more accurate time
+    const contestDate = contest.originalStartISO ? 
+      new Date(contest.originalStartISO) : contest.date;
+      
+    return {
+      ...contest,
+      startsIn: formatContestTimeUntil(contestDate, ""), // Pass empty startTime since ISO already has time
+      formattedDate: format(contestDate, 'MMMM d, yyyy'),
+      // Keep the time as provided (now in UTC format)
+      time: contest.startTime // This is already in "HH:MM UTC" format
+    };
+  });
   
   // Get connected platforms
   const connectedPlatforms = platforms
@@ -48,8 +180,7 @@ export default function DashboardPage() {
       isActive: platform.enabled
     }));
   
-  // Recent performance is already in the context
-  const recentContestPerformance = userPerformance;
+  // We don't need this anymore since we're using the PlatformPerformanceTabs component
   
   return (
     <ProtectedRoute>
@@ -81,49 +212,81 @@ export default function DashboardPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Contest</TableHead>
-                        <TableHead>Platform</TableHead>
-                        <TableHead>Date & Time</TableHead>
-                        <TableHead>Starts In</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {upcomingContests.map((contest) => (
-                        <TableRow key={contest.id}>
-                          <TableCell className="font-medium">
-                            <a 
-                              href={contest.link}
-                              target="_blank"
-                              rel="noopener noreferrer" 
-                              className="flex items-center gap-1 hover:underline text-primary"
-                            >
-                              {contest.name}
-                              <ArrowUpRight className="h-3 w-3" />
-                            </a>
-                          </TableCell>
-                          <TableCell>{contest.platform}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">{contest.formattedDate}</div>
-                            <div className="text-xs text-muted-foreground">{contest.time} • {contest.duration}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 text-primary">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>{contest.startsIn}</span>
-                            </div>
-                          </TableCell>
+                  {upcomingContests.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contest</TableHead>
+                          <TableHead>Platform</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Starts In</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {upcomingContests.map((contest) => (
+                          <TableRow key={contest.id}>
+                            <TableCell className="font-medium">
+                              <a 
+                                href={contest.link}
+                                target="_blank"
+                                rel="noopener noreferrer" 
+                                className="flex items-center gap-1 hover:underline text-primary"
+                              >
+                                {contest.name}
+                                <ArrowUpRight className="h-3 w-3" />
+                              </a>
+                            </TableCell>
+                          <TableCell>
+                            {contest.platform && contest.platform !== 'Unknown Platform' && contest.platform !== 'Unknown' 
+                              ? contest.platform 
+                              : <span className="text-muted-foreground">Platform unavailable</span>}
+                          </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{contest.formattedDate}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                                <span>{contest.localStartTime || contest.startTime} IST</span>
+                                <span className="text-slate-400">|</span>
+                                <span>{contest.duration}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1 text-primary">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{contest.startsIn}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <Bell className="h-12 w-12 text-muted-foreground mb-3" />
+                      <h3 className="text-lg font-medium mb-2">No contests with notifications</h3>
+                      <p className="text-muted-foreground max-w-md mb-4">
+                        You haven&apos;t enabled notifications for any upcoming contests.
+                        Visit the Contests page to enable notifications.
+                      </p>
+                      <a href="/dashboard/contests" className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                        <Bell className="h-4 w-4" />
+                        <span>Set up contest notifications</span>
+                      </a>
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="border-t pt-4 flex justify-between items-center">
                   <div className="text-sm text-muted-foreground">
-                    Showing {upcomingContests.length} upcoming contests
+                    {upcomingContests.length > 0 
+                      ? `Showing ${upcomingContests.length} upcoming contests with notifications enabled`
+                      : "No contests with notifications enabled"
+                    }
                   </div>
+                  {upcomingContests.length > 0 && (
+                    <a href="/dashboard/contests" className="text-sm text-primary hover:underline flex items-center gap-1">
+                      <span>View all contests</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  )}
                 </CardFooter>
               </Card>
 
@@ -194,47 +357,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="grid gap-6">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="rounded-xl border p-4 text-center bg-accent/5">
-                        <div className="text-3xl font-bold">24</div>
-                        <div className="mt-1 text-sm text-muted-foreground">Contests Participated</div>
-                      </div>
-                      <div className="rounded-xl border p-4 text-center bg-accent/5">
-                        <div className="text-3xl font-bold">12</div>
-                        <div className="mt-1 text-sm text-muted-foreground">Top 10% Placements</div>
-                      </div>
-                      <div className="rounded-xl border p-4 text-center bg-accent/5">
-                        <div className="text-3xl font-bold">1850</div>
-                        <div className="mt-1 text-sm text-muted-foreground">Peak Rating</div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-lg mb-3">Recent Results</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Contest</TableHead>
-                            <TableHead>Platform</TableHead>
-                            <TableHead>Ranking</TableHead>
-                            <TableHead>Score</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {recentContestPerformance.map(contest => (
-                            <TableRow key={contest.id}>
-                              <TableCell className="font-medium">{contest.name}</TableCell>
-                              <TableCell>{contest.platform}</TableCell>
-                              <TableCell>
-                                <div className="text-sm">{contest.ranking}</div>
-                                <div className="text-xs text-muted-foreground">Problems: {contest.problemsSolved}</div>
-                              </TableCell>
-                              <TableCell className="font-medium text-primary">{contest.score}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                    <PlatformPerformanceTabs />
                   </div>
                 </CardContent>
                 <CardFooter className="border-t pt-4">

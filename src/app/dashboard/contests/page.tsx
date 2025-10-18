@@ -22,26 +22,38 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Search, Bell, BellOff } from "lucide-react";
+import { Calendar, Search, Bell, BellOff, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
 import { useContestNotify, formatContestTimeUntil } from "@/lib/contest-notify-context";
 
 export default function ContestsPage() {
   const { contests, toggleContestNotification } = useContestNotify();
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // Number of contests to show per page
 
   const formatDate = (date: Date) => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      console.error("Invalid date object:", date);
+      return "Invalid date";
+    }
+    
     const options: Intl.DateTimeFormatOptions = {
       weekday: 'short',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      // Remove time formatting as we'll display UTC time from contest.startTime separately
     };
-    return date.toLocaleDateString(undefined, options);
+    
+    // This formats just the date part (without time)
+    return new Intl.DateTimeFormat(undefined, options).format(date);
   };
 
   const getTimeUntilContest = (date: Date, startTime: string) => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      console.error("Invalid date object for time until calculation:", date);
+      return "Time unavailable";
+    }
     return formatContestTimeUntil(date, startTime);
   };
 
@@ -49,6 +61,7 @@ export default function ContestsPage() {
     toggleContestNotification(contestId);
   };
 
+  // Filter contests by search query
   const filteredContests = contests.filter(contest => {
     if (!searchQuery) return true;
     
@@ -58,6 +71,25 @@ export default function ContestsPage() {
       contest.platform.toLowerCase().includes(query)
     );
   });
+  
+  // Calculate pagination values
+  const totalPages = Math.ceil(filteredContests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentContests = filteredContests.slice(startIndex, endIndex);
+  
+  // Handle page navigation
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+  
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   return (
     <ProtectedRoute>
@@ -99,27 +131,50 @@ export default function ContestsPage() {
               <Table className="text-xs sm:text-sm">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%] md:w-[25%]">Contest</TableHead>
+                    <TableHead className="w-[25%] md:w-[22%]">Contest</TableHead>
                     <TableHead className="hidden xs:table-cell w-[15%]">Platform</TableHead>
                     <TableHead className="hidden sm:table-cell w-[20%]">Start Time</TableHead>
                     <TableHead className="w-[15%] sm:w-[10%]">Starts In</TableHead>
                     <TableHead className="hidden md:table-cell w-[15%]">Duration</TableHead>
                     <TableHead className="w-[10%]">Notify</TableHead>
+                    <TableHead className="w-[10%]">Go to</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredContests.length > 0 ? (
-                    filteredContests.map(contest => (
+                    currentContests.map(contest => (
                       <TableRow key={contest.id}>
                         <TableCell className="font-medium py-3">
-                          {contest.name}
-                          <div className="xs:hidden text-xs text-muted-foreground">{contest.platform}</div>
+                          <div className="flex flex-col">
+                            <div>{contest.name}</div>
+                            <div className="xs:hidden text-xs text-muted-foreground">{contest.platform}</div>
+                          </div>
                         </TableCell>
                         <TableCell className="hidden xs:table-cell">
-                          <Badge variant="outline" className="text-xs">{contest.platform}</Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {contest.platform && contest.platform !== 'Unknown Platform' && contest.platform !== 'Unknown'
+                              ? contest.platform 
+                              : 'Unknown Platform'}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">{formatDate(contest.date)}</TableCell>
-                        <TableCell className="text-xs sm:text-sm">{getTimeUntilContest(contest.date, contest.startTime)}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          {contest.originalStartISO ? (
+                            // Use the original ISO string if available (most accurate)
+                            formatDate(new Date(contest.originalStartISO))
+                          ) : (
+                            formatDate(new Date(contest.date))
+                          )}
+                          <div className="text-xs text-muted-foreground">
+                            {contest.localStartTime || contest.startTime} IST
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs sm:text-sm">
+                          {contest.originalStartISO ? (
+                            getTimeUntilContest(new Date(contest.originalStartISO), "")
+                          ) : (
+                            getTimeUntilContest(new Date(contest.date), contest.startTime)
+                          )}
+                        </TableCell>
                         <TableCell className="hidden md:table-cell">{contest.duration}</TableCell>
                         <TableCell>
                           <Button
@@ -135,11 +190,38 @@ export default function ContestsPage() {
                             )}
                           </Button>
                         </TableCell>
+                        <TableCell>
+                          {contest.link ? (
+                            <a 
+                              href={contest.link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-500 hover:text-blue-700 transition-colors"
+                            >
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-50"
+                              disabled
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Search className="h-5 w-5 text-muted-foreground" />
                           <span>No contests found matching your search criteria.</span>
@@ -149,6 +231,38 @@ export default function ContestsPage() {
                   )}
                 </TableBody>
               </Table>
+              
+              {/* Pagination Controls */}
+              {filteredContests.length > itemsPerPage && (
+                <div className="flex justify-between items-center pt-4 mt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {startIndex + 1}-{Math.min(endIndex, filteredContests.length)} of {filteredContests.length} contests
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToPrevPage}
+                      disabled={currentPage === 1}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToNextPage}
+                      disabled={currentPage === totalPages}
+                      className="h-8 w-8 p-0"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

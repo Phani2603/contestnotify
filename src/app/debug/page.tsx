@@ -1,6 +1,7 @@
 "use client";
 
 import AuthDebugPanel from "@/components/ui/auth-debug-panel";
+import ApiDebugger from "@/components/api-debugger";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 
@@ -81,6 +82,11 @@ export default function DebugPage() {
       <AuthDebugPanel />
       
       <div className="mt-8 mb-8">
+        <h2 className="text-2xl font-bold mb-4">API Configuration</h2>
+        <ApiDebugger />
+      </div>
+      
+      <div className="mt-8 mb-8">
         <h2 className="text-2xl font-bold mb-4">Middleware Test</h2>
         <p className="mb-4">Test if the NextAuth middleware is correctly configured to allow API routes while protecting pages.</p>
         <button
@@ -134,6 +140,11 @@ export default function DebugPage() {
         )}
       </div>
       
+      <div className="mt-8 mb-8">
+        <h2 className="text-2xl font-bold mb-4">API Configuration</h2>
+        <ApiDebugger />
+      </div>
+      
       <div className="mt-8">
         <h2 className="text-2xl font-bold mb-4">Authentication Information</h2>
         <div className="mb-4">
@@ -145,10 +156,10 @@ export default function DebugPage() {
             <h3 className="text-xl font-semibold mb-2">Environment Check</h3>
             <ul className="list-disc pl-5 space-y-1">
               <li>Node Environment: {process.env.NODE_ENV}</li>
-              <li>Next Auth URL: {process.env.NEXTAUTH_URL || 'Not set'}</li>
-              <li>Auth Secret: {process.env.NEXTAUTH_SECRET ? '✓ Set' : '❌ Not set'}</li>
-              <li>GitHub OAuth: {process.env.GITHUB_ID && process.env.GITHUB_SECRET ? '✓ Configured' : '❌ Not configured'}</li>
-              <li>MongoDB: {process.env.MONGODB_URI ? '✓ URI Set' : '❌ URI Not set'}</li>
+              {/* Only include client-safe environment variables with NEXT_PUBLIC_ prefix */}
+              <li>CLIST API Username: {process.env.NEXT_PUBLIC_CLIST_API_USERNAME ? '✓ Set' : '❌ Not set'}</li>
+              <li>CLIST API Key: {process.env.NEXT_PUBLIC_CLIST_API_KEY ? '✓ Set' : '❌ Not set'}</li>
+              <li>Auth Config: {status === 'authenticated' ? '✓ Working' : '❌ Not configured or not logged in'}</li>
             </ul>
           </div>
           
